@@ -71,66 +71,133 @@ LEDLINEAR = [
 
 
 class PCA9633:
-    def __init__(self,i2cbus,address=ALLCALLADR):
+    def __init__(self,i2cbus,address,allcall=True):
         self.address = address
         self.i2cbus = i2cbus
-        m1 = 0x00                   #; // set sleep = 0, turn on oscillator, disable allcall and subaddrs
-        m2 = ((INVRT) | (OUTDRV))  #; // output inverted, totem pole drivers enabled
+        if allcall: 
+            m1 = ALLCALL
+        else:
+            m1 = 0x00                   #; // set sleep = 0, turn on oscillator, disable allcall and subaddrs
+        m2 = OUTDRV #((INVRT) | (OUTDRV))  #; // output inverted, totem pole drivers enabled
         ldout = 0xFF                #; // all outputs under individual and group control
-        print(f'm2 is {m2}')
-        self._i2c_write(self.address, MODE1, m1)
-        self._i2c_write(self.address, MODE2, m2)
-        self._i2c_write(self.address, LEDOUT, ldout)
+        print('m2 is {0:b}'.format(m2))
+        if address != 0x70:
+            self._i2c_write(self.address, MODE1, m1)
+            self._i2c_write(self.address, MODE2, m2)
+            self._i2c_write(self.address, LEDOUT, ldout)
+        else:
+            # This is the all call group probably!
+            pass
     def _i2c_write(self,address, cmd, data):
         # self.i2cbus.  Wire.beginTransmission(address);
-        self.i2cbus.write_byte_data(address, cmd, data) #; // control register
+        try:
+            self.i2cbus.write_byte_data(address, cmd, data) #; // control register
+        except OSError as e:
+            print(f'Error writeing to {address} with {cmd} {data}')
     def rgb(self,r,g,b,a=255):
         self._i2c_write(self.address, PWM0, b)
         self._i2c_write(self.address, PWM1, g)
         self._i2c_write(self.address, PWM2, r)
-        self._i2c_write(self.address, PWM3, a)
-
+        self._i2c_write(self.address, GRPPWM, a)
+    def getValues(self):
+        return self.i2cbus.read_byte_data(self.address, LEDOUT)
   
 
 
 if __name__ == "__main__":
     print('Hello world...')
     i2cbus = SMBus(1)  # Create a new I2C bus
+    # i2cbus.write_byte_data(0x03, 0xa5)
     print('Init LED')
-    led = PCA9633(i2cbus,0x52)
+    # led = PCA9633(i2cbus,0x52)
+    # led = PCA9633(i2cbus,0x3d)
+    led = PCA9633(i2cbus,0x70)
+    ledarry = []
+    for i in range(0x3d,0x6e):
+        ledarry.append(PCA9633(i2cbus,i))
+    print(led.getValues())
     time.sleep(0.5)
     step = 1.5
 
+    dim = 100
+
+    for l in ledarry:
+        l.rgb(255,0,0)
+        time.sleep(0.5)
+        l.rgb(0,0,0)
+
+    for l in ledarry:
+        l.rgb(0,255,0)
+        time.sleep(0.5)
+        l.rgb(0,0,0)
+
+    for l in ledarry:
+        l.rgb(0,0,255)
+        time.sleep(0.5)
+        l.rgb(0,0,0)
+
+
     print('0,0,0')
-    led.rgb(255,255,255)
+    led.rgb(0,0,0)
+    print(led.getValues())
     time.sleep(step)
     
     print('255,0,0')
-    led.rgb(0,255,255)
+    led.rgb(LEDLINEAR[dim],0,0)
+    print(led.getValues())
     time.sleep(step)
     
     print('0,0,0')
-    led.rgb(255,255,255)
+    led.rgb(0,0,0)
+    print(led.getValues())
     time.sleep(step)
     
     print('0,255,0')
-    led.rgb(255,0,255)
+    led.rgb(0,LEDLINEAR[dim],0)
+    print(led.getValues())
     time.sleep(step)
 
     print('0,0,0')
-    led.rgb(255,255,255)
+    led.rgb(0,0,0)
+    print(led.getValues())
     time.sleep(step)
     
     print('0,0,255')
-    led.rgb(255,255,0)
+    led.rgb(0,0,LEDLINEAR[dim])
+    print(led.getValues())
     time.sleep(step)
     
     print('0,0,0')
-    led.rgb(255,255,255)
+    led.rgb(0,0,0)
+    print(led.getValues())
     time.sleep(step)
 
-    print(0,0,0,255)
-    led.rgb(255,255,255,0)
+    led.rgb(LEDLINEAR[10],LEDLINEAR[200],LEDLINEAR[100],0)
+    time.sleep(step)
+    for i in range (0,dim):
+        print(i)
+        led._i2c_write(0x70, GRPPWM, LEDLINEAR[i])
+        time.sleep(0.2)
+
+    print('0,0,0')
+    led.rgb(0,0,0)
+    print(led.getValues())
+    time.sleep(step)
+
+    # print(0,0,0,255)
+    # led.rgb(0,0,0,255)
+    # print(led.getValues())
+    # time.sleep(step)
+
+    # print(0,0,0,0)
+    # led.rgb(0,0,0,0)
+    # print(led.getValues())
+    # time.sleep(step)
+
+    # print('255,0,0')
+    # led.rgb(255,0,0)
+    # print(led.getValues())
+    # time.sleep(step)
      # print('PWM1 0')
     # led._i2c_write(0x52, PWM1, 0x00)
     # time.sleep(0.5)
