@@ -7,6 +7,13 @@ import asyncio
 import os, random
 from pca9633 import PCA9633
 from smbus import SMBus
+import logging
+logging.basicConfig(level=logging.DEBUG)
+# numeric_level = getattr(logging, loglevel.upper(), None)
+# if not isinstance(numeric_level, int):
+#     raise ValueError('Invalid log level: %s' % loglevel)
+# logging.basicConfig(level=numeric_level, ...)
+
 
 HOST, PORT = '192.168.0.255', 6454
 
@@ -36,17 +43,33 @@ class ArtnetUniverse(asyncio.DatagramProtocol):
         net = -1
         physical = -1
         subuni = -1
-        try:
-            type = data[8:9]
-            physical = data[13]
-            # print(f'Type {type}  physical {physical}  ')
-            subuni = data[14]
-            net = data[15]
-            length = data[16:17]
-            dmx = data[18:]
-            # print(f'Type {type}  physical {physical}  subuni {subuni}  net {net}  length {length}')
-        except IndexError as e:
-            pass
+        if len(data) < 18:
+            logging.debug(f'Packet only {len(data)} bytes - need 18 bytes')
+            return False # Not enough data
+        if data[0:7] != b'Art-Net':
+            logging.debug(f'Does not start Art-Net {data[0:7]}')
+            return False
+        opcode = int.from_bytes(data[8:9],byteorder='little')
+        protVer = int(data[10])
+        # if protVer < 14: # ChamSys seems to send lots of version 0!
+        #     logging.debug(f'Invalid versoin {protVer}')
+        #     return False
+        physical = data[13] # This field is for information only. Use Universe for data routing.
+
+        universeAndNet = data[14:15]
+        length = int.from_bytes(data[16:17],byteorder='big') # ChamSys again seems to send a rubbish length of 2 constantly
+        address = int.from_bytes(universeAndNet,byteorder='little') #byteorder='big'
+        logging.debug(f'Opcode: {opcode}, Version {protVer}, Payload length {length}, Universe and net {universeAndNet}, use address {address}')
+        # https://art-net.org.uk/how-it-works/streaming-packets/artdmx-packet-definition/
+    
+        # type = data[8:9]
+        
+        # print(f'Type {type}  physical {physical}  ')
+        subuni = data[14]
+        net = data[15]      # SubUni and Net make up 
+        length = data[16:17]
+        dmx = data[18:]
+        # print(f'Type {type}  physical {physical}  subuni {subuni}  net {net}  length {length}')
         if net == self.net and subuni == self.subuni and physical == self.physical:
             # print(f'Process {dmx}')
             for pixel in range(0,len(self.pixels),3):
