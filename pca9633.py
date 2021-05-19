@@ -123,7 +123,7 @@ if __name__ == "__main__":
             ledarry.append(temp_pixel)
     print(led.getValues())
     time.sleep(0.5)
-    step = 0.01
+    step = 0.51
 
     dim = 100
 
